@@ -71,11 +71,6 @@ struct FloatingSidebarView: View {
           .font(.title2)
           .foregroundStyle(.primary)
           .padding(8)
-          .background(
-            Circle()
-              .fill(.ultraThinMaterial)
-              .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-          )
       }
 
       if sidebarState == .expanded {
@@ -93,16 +88,19 @@ struct FloatingSidebarView: View {
 
   var compactContentView: some View {
     VStack(spacing: 24) {
+      Divider()
+        .padding(.horizontal)
+
       ForEach(SidebarCategory.allCases) { category in
         Button {
           viewModel.send(.viewAction(.didSelectCategory(category)))
         } label: {
           Image(systemName: category.iconName)
             .font(.system(size: 20))
-            .foregroundStyle(viewModel.selectedCategory == category ? AppColors.skyBlue : .secondary)
+            .foregroundStyle(.secondary)
             .frame(width: 40, height: 40)
             .background(
-              viewModel.selectedCategory == category ? AppColors.skyBlue.opacity(0.2) : Color.clear
+              viewModel.selectedCategory == category ? Color.secondary.opacity(0.05) : Color.clear
             )
             .clipShape(Circle())
         }
@@ -146,13 +144,18 @@ struct FloatingSidebarView: View {
               .padding(.vertical, 10)
               .padding(.horizontal)
               .background(
-                viewModel.selectedCategory == category ? AppColors.skyBlue.opacity(0.3) : Color.clear
+                viewModel.selectedCategory == category ? Color.secondary.opacity(0.05) : Color.clear
               )
               .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .foregroundStyle(.primary)
           }
 
+          Text("import Content")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal)
+          
           // Add Folder Button
           Button {
             isImporting = true
@@ -165,7 +168,6 @@ struct FloatingSidebarView: View {
             }
             .padding(.vertical, 10)
             .padding(.horizontal)
-            .background(Color.secondary.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 12))
           }
           .foregroundStyle(.primary)
