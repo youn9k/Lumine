@@ -87,11 +87,11 @@ final class MainViewModel {
     case .playPrevious:
       playPreviousVideo()
 
-    case let .didImportFolder(result):
+    case let .didImportFolder(result, recursive):
       switch result {
       case let .success(url):
-        print("[Action] Folder imported: \(url.path)")
-        fileService.scanFolder(at: url)
+        print("[Action] Folder imported: \(url.path) (Recursive: \(recursive))")
+        fileService.scanFolder(at: url, recursive: recursive)
 
       case let .failure(error):
         print("[Action] Folder import failed: \(error)")

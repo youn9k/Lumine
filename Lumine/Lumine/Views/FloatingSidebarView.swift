@@ -23,6 +23,8 @@ struct FloatingSidebarView: View {
   @Binding var sidebarState: SidebarState
   var position: HorizontalAlignment = .leading
   @State private var isImporting: Bool = false
+  @State private var pendingImportUrl: URL?
+  @State private var isShowRecursiveAlert = false
 
   var body: some View {
     ZStack(alignment: position == .leading ? .leading : .trailing) {
@@ -179,11 +181,27 @@ struct FloatingSidebarView: View {
             switch result {
             case let .success(urls):
               if let url = urls.first {
-                viewModel.send(.viewAction(.didImportFolder(.success(url))))
+                pendingImportUrl = url
+                isShowRecursiveAlert = true
               }
             case let .failure(error):
-              viewModel.send(.viewAction(.didImportFolder(.failure(error))))
+              viewModel.send(.viewAction(.didImportFolder(.failure(error), recursive: false)))
             }
+          }
+          .alert("가져오기 방식", isPresented: $isShowRecursiveAlert) {
+            Button("현재 폴더에서 가져오기") {
+              if let url = pendingImportUrl {
+                viewModel.send(.viewAction(.didImportFolder(.success(url), recursive: false)))
+              }
+            }
+            Button("하위 폴더 포함해서 가져오기") {
+              if let url = pendingImportUrl {
+                viewModel.send(.viewAction(.didImportFolder(.success(url), recursive: true)))
+              }
+            }
+            Button("Cancel", role: .cancel) {}
+          } message: {
+            Text("하위 폴더가 많을 경우 시간이 오래 걸릴 수 있습니다.")
           }
         }
 

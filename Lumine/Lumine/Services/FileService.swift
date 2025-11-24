@@ -44,8 +44,8 @@ final class FileService {
         }
     }
     
-    func scanFolder(at url: URL, isRestoring: Bool = false) {
-        print("[FileService] Scanning folder: \(url.path)")
+    func scanFolder(at url: URL, isRestoring: Bool = false, recursive: Bool = false) {
+        print("[FileService] Scanning folder: \(url.path) (Recursive: \(recursive))")
         
         // If it's a new selection (not restoring), start accessing
         if !isRestoring {
@@ -57,7 +57,11 @@ final class FileService {
         }
         
         let keys: [URLResourceKey] = [.contentTypeKey, .nameKey]
-        let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles, .skipsPackageDescendants]
+        var options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles, .skipsPackageDescendants]
+        
+        if !recursive {
+            options.insert(.skipsSubdirectoryDescendants)
+        }
         
         // Create enumerator for recursive scanning
         guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: keys, options: options) else {
