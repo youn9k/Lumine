@@ -146,6 +146,7 @@ struct NormalPlayerView: View {
       }
       .opacity(isControlsVisible ? 1 : 0)
     }
+    .buttonStyle(.plain) // Remove default macOS button backgrounds
     //.focusable()
     .onAppear {
       resetTimer()

@@ -8,16 +8,6 @@ struct PlayerContainerView: View {
 
   var body: some View {
     ZStack {
-      // Card Background
-//      RoundedRectangle(cornerRadius: LayoutConstants.cardCornerRadius)
-//        .fill(.ultraThinMaterial)
-//        .shadow(
-//          color: .black.opacity(0.1),
-//          radius: LayoutConstants.cardShadowRadius,
-//          x: 0,
-//          y: LayoutConstants.cardShadowY
-//        )
-
       if viewModel.isShowPlayer {
         ZStack {
           switch viewModel.playerMode {
@@ -29,10 +19,6 @@ struct PlayerContainerView: View {
               .clipShape(RoundedRectangle(cornerRadius: LayoutConstants.cardCornerRadius))
           }
         }
-        .matchedGeometryEffect(
-          id: viewModel.fileService.files[safe: viewModel.currentVideoIndex] ?? URL(fileURLWithPath: ""),
-          in: animation
-        )
         // Drag to close logic - keeping it but adjusting for card layout
         .offset(y: dragOffset.height)
         .gesture(

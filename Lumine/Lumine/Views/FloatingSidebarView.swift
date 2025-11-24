@@ -56,6 +56,7 @@ struct FloatingSidebarView: View {
       // and we might need an external trigger if hidden.
       // Actually, let's keep the toggle button inside the sidebar area but make sure it handles the transitions.)
     }
+    .buttonStyle(.plain) // Remove default macOS button backgrounds
     // Animation is handled by the parent or state changes
   }
 

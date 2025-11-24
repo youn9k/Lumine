@@ -10,6 +10,8 @@ struct ShortFormPlayerView: View {
       LazyVStack(spacing: 0) {
         ForEach(viewModel.fileService.files, id: \.self) { url in
           ZStack {
+            Color.black.ignoresSafeArea()
+            
             // Video Player (Only play if current)
             if viewModel.fileService.files.firstIndex(of: url) == viewModel.currentVideoIndex {
               VideoPlayerWrapper(player: viewModel.videoPlayerService.player)
@@ -17,11 +19,6 @@ struct ShortFormPlayerView: View {
             } else {
               // Thumbnail or Placeholder
               ThumbnailView(url: url)
-                .overlay {
-                  Image(systemName: "play.circle")
-                    .font(.largeTitle)
-                    .foregroundStyle(.white.opacity(0.5))
-                }
             }
 
             // Overlay Info
@@ -68,15 +65,16 @@ struct ShortFormPlayerView: View {
             }
           }
           .containerRelativeFrame([.horizontal, .vertical])
+          .clipped()
           .onAppear {
             // If we scroll to this view, play it
             // But ScrollView onAppear triggers early.
             // Better to use scrollPosition or geometry detection.
             // For simplicity in this MVP, we rely on manual swipe logic or paging.
-              
+
             // Ensure loop is enabled for short form
             if viewModel.playerMode == .shortForm {
-                viewModel.videoPlayerService.isLooping = true
+              viewModel.videoPlayerService.isLooping = true
             }
           }
         }
@@ -87,7 +85,7 @@ struct ShortFormPlayerView: View {
     .scrollPosition(id: Binding(
       get: { viewModel.fileService.files[safe: viewModel.currentVideoIndex] },
       set: { url in
-        if let url = url, let index = viewModel.fileService.files.firstIndex(of: url) {
+        if let url {
           viewModel.send(.viewAction(.didSelectVideo(url)))
         }
       }
@@ -96,7 +94,7 @@ struct ShortFormPlayerView: View {
     .onTapGesture {
       viewModel.send(.viewAction(.playPause))
     }
-    .focusable()
+    //.focusable()
     #if os(macOS)
       .onReceive(shortcuts.keySubject) { key in
         switch key {
@@ -111,6 +109,7 @@ struct ShortFormPlayerView: View {
         }
       }
     #endif
+    .buttonStyle(.plain) // Remove default macOS button backgrounds
   }
 }
 
