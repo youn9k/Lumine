@@ -22,7 +22,8 @@ struct LibraryView: View {
                 .overlay {
                   ThumbnailView(url: url)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: 12)) // 오버레이에서 넘친 이미지 부분을 자름
+                .contentShape(RoundedRectangle(cornerRadius: 12)) // Hit testing 영역을 설정
                 .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
 
               Text(url.lastPathComponent)
@@ -39,7 +40,7 @@ struct LibraryView: View {
     }
     .background(Color.black.opacity(0.05))
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .contentShape(Rectangle()) // Ensure the entire area is hit-testable for drops
+    .contentShape(Rectangle()) // Hit testing 영역을 설정
     .onDrop(of: [.movie, .video, .fileURL, .content, .item], isTargeted: nil) { providers in
       viewModel.fileService.processDroppedItems(providers: providers) { urls in
         if !urls.isEmpty {
