@@ -21,45 +21,41 @@ enum SidebarState {
 struct FloatingSidebarView: View {
   @Bindable var viewModel: MainViewModel
   @Binding var sidebarState: SidebarState
-  var position: HorizontalAlignment = .leading
+  @Binding var position: HorizontalAlignment
   @State private var isImporting: Bool = false
   @State private var pendingImportUrl: URL?
   @State private var isShowRecursiveAlert = false
 
   var body: some View {
-    ZStack(alignment: position == .leading ? .leading : .trailing) {
-      // Sidebar Content
-      if sidebarState.isVisible {
-        VStack(alignment: .leading, spacing: 20) {
-          headerView
+    // Sidebar Content
+    if sidebarState.isVisible {
+      VStack(alignment: .leading, spacing: 20) {
+        headerView
 
-          if sidebarState == .expanded {
-            contentView
-              .transition(.opacity.combined(with: .move(edge: position == .leading ? .leading : .trailing)))
-          } else {
-            compactContentView
-              .transition(.opacity)
-          }
-
-          Spacer()
+        if sidebarState == .expanded {
+          contentView
+            .transition(.opacity.combined(with: .move(edge: position == .leading ? .leading : .trailing)))
+        } else {
+          compactContentView
+            .transition(.opacity)
         }
-        .frame(width: sidebarState.width)
-        // Background removed for Arc-like "text on canvas" look
-        .padding(.vertical, LayoutConstants.sidebarPadding)
-        .padding(.leading, position == .leading ? LayoutConstants.sidebarPadding : 0)
-        .padding(.trailing, position == .trailing ? LayoutConstants.sidebarPadding : 0)
-      }
 
-      // Toggle Button (Always visible or managed externally?
-      // Requirement says "Sidebar with three states: Hidden... Toggle button to cycle or show/hide"
-      // We'll place a toggle button that is always accessible or part of the sidebar when visible.
-      // If hidden, we need a way to bring it back. Usually a button on the main content or a gesture.
-      // For now, let's assume the toggle is part of the sidebar when visible,
-      // and we might need an external trigger if hidden.
-      // Actually, let's keep the toggle button inside the sidebar area but make sure it handles the transitions.)
+        Spacer()
+      }
+      .buttonStyle(.plain)
+      .frame(width: sidebarState.width)
+      // Background removed for Arc-like "text on canvas" look
+      .padding(.vertical, LayoutConstants.sidebarPadding)
+      .padding(.leading, position == .leading ? LayoutConstants.sidebarPadding : 0)
+      .padding(.trailing, position == .trailing ? LayoutConstants.sidebarPadding : 0)
+    } else {
+      // Ensure we return something if hidden, though isVisible check above handles it.
+      // If hidden, width is 0, so it effectively disappears.
+      // However, if we want to keep the toggle button accessible even when hidden (if logic changes),
+      // we might need a different approach.
+      // For now, based on current logic:
+      EmptyView()
     }
-    .buttonStyle(.plain) // Remove default macOS button backgrounds
-    // Animation is handled by the parent or state changes
   }
 
   var headerView: some View {
@@ -157,7 +153,7 @@ struct FloatingSidebarView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal)
-          
+
           // Add Folder Button
           Button {
             isImporting = true
@@ -256,6 +252,6 @@ struct FloatingSidebarView: View {
   FloatingSidebarView(
     viewModel: MainViewModel(),
     sidebarState: $sidebarState,
-    position: .trailing
+    position: .constant(.leading)
   )
 }
