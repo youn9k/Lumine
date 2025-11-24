@@ -11,156 +11,11 @@ struct NormalPlayerView: View {
     ZStack {
       Color.black.ignoresSafeArea()
 
-      // Video Player Layer
-      VideoPlayerWrapper(player: viewModel.videoPlayerService.player)
-        .ignoresSafeArea()
-        .onTapGesture {
-          withAnimation {
-            isControlsVisible.toggle()
-          }
-          resetTimer()
-        }
+      videoPlayerView
 
-      // Controls Overlay
-      VStack {
-        // Top Bar
-        HStack {
-          Button {
-            viewModel.send(.viewAction(.closePlayer))
-          } label: {
-            Image(systemName: "xmark")
-              .font(.system(size: 18, weight: .semibold))
-              .foregroundStyle(.white)
-              .padding(12)
-              .background(.ultraThinMaterial)
-              .clipShape(Circle())
-          }
-
-          Spacer()
-
-          HStack(spacing: 16) {
-            // Mode Toggle Button
-            Button {
-              viewModel.send(.viewAction(.togglePlayerMode))
-            } label: {
-              Image(systemName: "rectangle.stack.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(12)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-            }
-
-            // Full Screen Toggle Button
-            Button {
-              viewModel.send(.viewAction(.toggleFullScreen))
-            } label: {
-              Image(systemName: viewModel.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(12)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-            }
-
-            Button {
-              NotificationCenter.default.post(name: .togglePiP, object: nil)
-            } label: {
-              Image(systemName: "pip.enter")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(12)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-            }
-          }
-        }
-        .padding(20)
-
-        Spacer()
-
-        // Bottom Control Bar
-        VStack(spacing: 20) {
-          // Progress Bar
-          VStack(spacing: 8) {
-            Slider(value: Binding(
-              get: { viewModel.videoPlayerService.currentTime },
-              set: { viewModel.videoPlayerService.seek(to: $0) }
-            ), in: 0 ... viewModel.videoPlayerService.duration)
-              .tint(AppColors.mint)
-              .onAppear {
-                // Custom slider styling if possible, otherwise standard tint
-              }
-
-            HStack {
-              Text(formatTime(viewModel.videoPlayerService.currentTime))
-              Spacer()
-              Text(formatTime(viewModel.videoPlayerService.duration))
-            }
-            .font(.caption2)
-            .foregroundStyle(.white.opacity(0.8))
-            .monospacedDigit()
-          }
-
-          // Playback Controls
-          HStack(spacing: 40) {
-            Button {
-              viewModel.send(.viewAction(.toggleLooping))
-              resetTimer()
-            } label: {
-              Image(systemName: "repeat")
-                .font(.title3)
-                .foregroundStyle(viewModel.videoPlayerService.isLooping ? AppColors.mint : .white.opacity(0.6))
-            }
-
-            Spacer()
-
-            HStack(spacing: 32) {
-              Button {
-                viewModel.send(.viewAction(.seekBackward))
-                resetTimer()
-              } label: {
-                Image(systemName: "gobackward.5")
-                  .font(.title2)
-                  .foregroundStyle(.white)
-              }
-
-              Button {
-                viewModel.send(.viewAction(.playPause))
-                resetTimer()
-              } label: {
-                Image(systemName: viewModel.videoPlayerService.isPlaying ? "pause.fill" : "play.fill")
-                  .font(.system(size: 44))
-                  .foregroundStyle(AppColors.mint)
-                  .shadow(color: AppColors.mint.opacity(0.4), radius: 10)
-              }
-
-              Button {
-                viewModel.send(.viewAction(.seekForward))
-                resetTimer()
-              } label: {
-                Image(systemName: "goforward.5")
-                  .font(.title2)
-                  .foregroundStyle(.white)
-              }
-            }
-
-            Spacer()
-
-            // Placeholder for balance
-            Color.clear.frame(width: 24, height: 24)
-          }
-        }
-        .padding(24)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .padding(.horizontal, 24)
-        .padding(.bottom, 24)
-      }
-      .opacity(isControlsVisible ? 1 : 0)
+      controlsOverlay
     }
-    .buttonStyle(.plain) // Remove default macOS button backgrounds
-    //.focusable()
+    .buttonStyle(.plain)
     .onAppear {
       resetTimer()
     }
@@ -187,6 +42,155 @@ struct NormalPlayerView: View {
       }
     }
     #endif
+  }
+
+  private var videoPlayerView: some View {
+    VideoPlayerWrapper(player: viewModel.videoPlayerService.player)
+      .ignoresSafeArea()
+      .onTapGesture {
+        withAnimation {
+          isControlsVisible.toggle()
+        }
+        resetTimer()
+      }
+  }
+
+  private var controlsOverlay: some View {
+    VStack {
+      topControls
+        .padding(20)
+
+      Spacer()
+
+      bottomControls
+        .padding(24)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .padding(.horizontal, 24)
+        .padding(.bottom, 24)
+    }
+    .opacity(isControlsVisible ? 1 : 0)
+  }
+
+  private var topControls: some View {
+    HStack {
+      Button {
+        viewModel.send(.viewAction(.closePlayer))
+      } label: {
+        circleButtonImage(systemName: "xmark", size: 18)
+      }
+
+      Spacer()
+
+      HStack(spacing: 16) {
+        Button {
+          viewModel.send(.viewAction(.togglePlayerMode))
+        } label: {
+          circleButtonImage(systemName: "rectangle.stack.fill", size: 16)
+        }
+
+        Button {
+          viewModel.send(.viewAction(.toggleFullScreen))
+        } label: {
+          circleButtonImage(
+            systemName: viewModel.isFullScreen
+              ? "arrow.down.right.and.arrow.up.left"
+              : "arrow.up.left.and.arrow.down.right",
+            size: 16
+          )
+        }
+
+        Button {
+          NotificationCenter.default.post(name: .togglePiP, object: nil)
+        } label: {
+          circleButtonImage(systemName: "pip.enter", size: 16)
+        }
+      }
+    }
+  }
+
+  private var bottomControls: some View {
+    VStack(spacing: 20) {
+      // Progress Bar
+      VStack(spacing: 8) {
+        Slider(value: Binding(
+          get: { viewModel.videoPlayerService.currentTime },
+          set: { viewModel.videoPlayerService.seek(to: $0) }
+        ), in: 0 ... viewModel.videoPlayerService.duration)
+          .tint(.white.opacity(0.4))
+
+        HStack {
+          Text(formatTime(viewModel.videoPlayerService.currentTime))
+          Spacer()
+          Text(formatTime(viewModel.videoPlayerService.duration))
+        }
+        .font(.caption2)
+        .foregroundStyle(.white.opacity(0.8))
+        .monospacedDigit()
+      }
+
+      // Playback Controls
+      HStack(spacing: 40) {
+        Button {
+          viewModel.send(.viewAction(.toggleLooping))
+          resetTimer()
+        } label: {
+          Image(systemName: "repeat")
+            .font(.title3)
+            .foregroundStyle(
+              viewModel.videoPlayerService.isLooping
+                ? AppColors.skyBlue
+                : .white.opacity(0.6)
+            )
+        }
+
+        Spacer()
+
+        HStack(spacing: 32) {
+          Button {
+            viewModel.send(.viewAction(.seekBackward))
+            resetTimer()
+          } label: {
+            Image(systemName: "gobackward.5")
+              .font(.title2)
+              .foregroundStyle(.white)
+          }
+
+          Button {
+            viewModel.send(.viewAction(.playPause))
+            resetTimer()
+          } label: {
+            Image(systemName: viewModel.videoPlayerService.isPlaying ? "pause.fill" : "play.fill")
+              .font(.system(size: 44))
+              .foregroundStyle(AppColors.skyBlue)
+              .shadow(color: AppColors.skyBlue.opacity(0.4), radius: 10)
+          }
+
+          Button {
+            viewModel.send(.viewAction(.seekForward))
+            resetTimer()
+          } label: {
+            Image(systemName: "goforward.5")
+              .font(.title2)
+              .foregroundStyle(.white)
+          }
+        }
+
+        Spacer()
+
+        // Placeholder for balance
+        Color.clear.frame(width: 24, height: 24)
+      }
+    }
+  }
+
+  private func circleButtonImage(systemName: String, size: CGFloat) -> some View {
+    Image(systemName: systemName)
+      .font(.system(size: size, weight: .semibold))
+      .foregroundStyle(.white)
+      .padding(12)
+      .background(.ultraThinMaterial)
+      .clipShape(Circle())
   }
 
   private func resetTimer() {
