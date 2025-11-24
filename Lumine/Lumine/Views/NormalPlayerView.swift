@@ -39,10 +39,23 @@ struct NormalPlayerView: View {
           Spacer()
 
           HStack(spacing: 16) {
+            // Mode Toggle Button
             Button {
               viewModel.send(.viewAction(.togglePlayerMode))
             } label: {
-              Image(systemName: "arrow.up.left.and.arrow.down.right")
+              Image(systemName: "rectangle.stack.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+            }
+
+            // Full Screen Toggle Button
+            Button {
+              viewModel.send(.viewAction(.toggleFullScreen))
+            } label: {
+              Image(systemName: viewModel.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(12)

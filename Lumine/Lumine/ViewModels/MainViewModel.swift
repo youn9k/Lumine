@@ -13,6 +13,7 @@ final class MainViewModel {
   private(set) var isShowPlayer: Bool = false
   private(set) var playerMode: PlayerMode = .normal
   private(set) var currentVideoIndex: Int = 0
+  private(set) var isFullScreen: Bool = false
 
   enum PlayerMode {
     case normal
@@ -63,6 +64,7 @@ final class MainViewModel {
 
     case .closePlayer:
       isShowPlayer = false
+      isFullScreen = false
       videoPlayerService.pause()
       print("[State] Player closed")
 
@@ -100,6 +102,14 @@ final class MainViewModel {
     case .toggleLooping:
       videoPlayerService.isLooping.toggle()
       print("[State] Looping toggled to: \(videoPlayerService.isLooping)")
+
+    case .toggleFullScreen:
+      isFullScreen.toggle()
+      print("[State] FullScreen toggled to: \(isFullScreen)")
+
+    case let .setFullScreen(isFull):
+      isFullScreen = isFull
+      print("[State] FullScreen set to: \(isFullScreen)")
     }
   }
 

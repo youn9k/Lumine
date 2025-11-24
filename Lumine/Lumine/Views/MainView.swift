@@ -16,22 +16,26 @@ struct MainView: View {
       PlayerContainerView(viewModel: viewModel, sidebarState: sidebarState)
         .padding(
           .leading,
-          sidebarPosition == .leading && sidebarState.isVisible
+          !viewModel.isFullScreen && sidebarPosition == .leading && sidebarState.isVisible
             ? sidebarState.width + LayoutConstants.sidebarPadding + LayoutConstants.cardPadding
-            : LayoutConstants.cardPadding
+            : (viewModel.isFullScreen ? 0 : LayoutConstants.cardPadding)
         )
         .padding(
           .trailing,
-          sidebarPosition == .trailing && sidebarState.isVisible
+          !viewModel.isFullScreen && sidebarPosition == .trailing && sidebarState.isVisible
             ? sidebarState.width + LayoutConstants.sidebarPadding + LayoutConstants.cardPadding
-            : LayoutConstants.cardPadding
+            : (viewModel.isFullScreen ? 0 : LayoutConstants.cardPadding)
         )
-        .padding(.vertical, LayoutConstants.cardPadding)
+        .padding(.vertical, viewModel.isFullScreen ? 0 : LayoutConstants.cardPadding)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: sidebarState)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: sidebarPosition)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: viewModel.isFullScreen)
+        .ignoresSafeArea(edges: viewModel.isFullScreen ? .all : [])
 
-      // Floating Sidebar
-      SidebarView(viewModel: viewModel, sidebarState: $sidebarState, position: $sidebarPosition)
+      // Sidebar
+      if !viewModel.isFullScreen {
+        SidebarView(viewModel: viewModel, sidebarState: $sidebarState, position: $sidebarPosition)
+      }
     }
     .onAppear {
       viewModel.send(.lifeCycle(.onAppear))

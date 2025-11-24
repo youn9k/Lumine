@@ -24,5 +24,7 @@ extension MainViewModel {
     case playNext
     case playPrevious
     case toggleLooping
+    case toggleFullScreen
+    case setFullScreen(Bool)
   }
 }
