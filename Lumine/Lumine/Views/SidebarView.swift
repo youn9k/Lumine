@@ -18,7 +18,7 @@ enum SidebarState {
   }
 }
 
-struct FloatingSidebarView: View {
+struct SidebarView: View {
   @Bindable var viewModel: MainViewModel
   @Binding var sidebarState: SidebarState
   @Binding var position: HorizontalAlignment
@@ -249,7 +249,7 @@ struct FloatingSidebarView: View {
 
 #Preview {
   @Previewable @State var sidebarState: SidebarState = .compact
-  FloatingSidebarView(
+  SidebarView(
     viewModel: MainViewModel(),
     sidebarState: $sidebarState,
     position: .constant(.leading)

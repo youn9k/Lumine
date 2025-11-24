@@ -31,7 +31,7 @@ struct MainView: View {
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: sidebarPosition)
 
       // Floating Sidebar
-      FloatingSidebarView(viewModel: viewModel, sidebarState: $sidebarState, position: $sidebarPosition)
+      SidebarView(viewModel: viewModel, sidebarState: $sidebarState, position: $sidebarPosition)
     }
     .onAppear {
       viewModel.send(.lifeCycle(.onAppear))
