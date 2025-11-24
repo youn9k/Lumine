@@ -14,7 +14,7 @@ struct ShortFormPlayerView: View {
             
             // Video Player (Only play if current)
             if viewModel.fileService.files.firstIndex(of: url) == viewModel.currentVideoIndex {
-              VideoPlayerWrapper(player: viewModel.videoPlayerService.player)
+              VideoPlayerWrapper(player: viewModel.videoPlayerService.player, videoGravity: .resizeAspect)
                 .id(url) // Force recreate if needed, or keep
             } else {
               // Thumbnail or Placeholder
