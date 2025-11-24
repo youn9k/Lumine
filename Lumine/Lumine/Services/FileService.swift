@@ -29,18 +29,42 @@ final class FileService {
                 
                 if isStale {
                     print("[FileService] Bookmark is stale: \(url.path)")
-                    // In a real app, you might want to re-save the bookmark here
                 }
                 
                 if url.startAccessingSecurityScopedResource() {
                     print("[FileService] Restored access to: \(url.path)")
-                    scanFolder(at: url, isRestoring: true)
+                    // Check if it's a directory or file
+                    var isDirectory: ObjCBool = false
+                    if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) {
+                        if isDirectory.boolValue {
+                            scanFolder(at: url, isRestoring: true)
+                        } else {
+                            // It's a file
+                            if !files.contains(url) {
+                                files.append(url)
+                            }
+                        }
+                    }
                 } else {
                     print("[FileService] Failed to access security scoped resource: \(url.path)")
                 }
             } catch {
                 print("[FileService] Error resolving bookmark: \(error)")
             }
+        }
+    }
+    
+    func addSingleFile(url: URL) {
+        print("[FileService] Adding single file: \(url.path)")
+        guard url.startAccessingSecurityScopedResource() else {
+            print("[FileService] Failed to access security scoped resource: \(url.path)")
+            return
+        }
+        
+        saveBookmark(for: url)
+        
+        if !files.contains(url) {
+            files.append(url)
         }
     }
     

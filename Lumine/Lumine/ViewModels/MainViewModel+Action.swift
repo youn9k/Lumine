@@ -16,6 +16,7 @@ extension MainViewModel {
     case didChangeSeekInterval(TimeInterval)
     case didSelectVideo(URL)
     case didImportFolder(Result<URL, Error>, recursive: Bool)
+    case didImportSingleVideo(Result<URL, Error>)
     case closePlayer
     case togglePlayerMode
     case playPause

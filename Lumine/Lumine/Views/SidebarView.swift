@@ -23,6 +23,7 @@ struct SidebarView: View {
   @Binding var sidebarState: SidebarState
   @Binding var position: HorizontalAlignment
   @State private var isImporting: Bool = false
+  @State private var isImportingFile: Bool = false
   @State private var pendingImportUrl: URL?
   @State private var isShowRecursiveAlert = false
 
@@ -124,7 +125,7 @@ struct SidebarView: View {
       VStack(alignment: .leading, spacing: 24) {
         // Library Section
         VStack(alignment: .leading, spacing: 12) {
-          Text("Library")
+          Text("라이브러리")
             .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal)
@@ -149,7 +150,7 @@ struct SidebarView: View {
             .foregroundStyle(.primary)
           }
 
-          Text("import Content")
+          Text("불러오기")
             .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal)
@@ -161,7 +162,7 @@ struct SidebarView: View {
             HStack {
               Image(systemName: "folder.badge.plus")
                 .frame(width: 24)
-              Text("Add Folder")
+              Text("폴더로 가져오기")
               Spacer()
             }
             .padding(.vertical, 10)
@@ -185,12 +186,12 @@ struct SidebarView: View {
             }
           }
           .alert("가져오기 방식", isPresented: $isShowRecursiveAlert) {
-            Button("현재 폴더에서 가져오기") {
+            Button("현재 폴더만(권장)") {
               if let url = pendingImportUrl {
                 viewModel.send(.viewAction(.didImportFolder(.success(url), recursive: false)))
               }
             }
-            Button("하위 폴더 포함해서 가져오기") {
+            Button("하위 폴더 포함") {
               if let url = pendingImportUrl {
                 viewModel.send(.viewAction(.didImportFolder(.success(url), recursive: true)))
               }
@@ -199,11 +200,41 @@ struct SidebarView: View {
           } message: {
             Text("하위 폴더가 많을 경우 시간이 오래 걸릴 수 있습니다.")
           }
+          
+          // Add File Button
+          Button {
+            isImportingFile = true
+          } label: {
+            HStack {
+              Image(systemName: "doc.badge.plus")
+                .frame(width: 24)
+              Text("바로 재생")
+              Spacer()
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+          }
+          .foregroundStyle(.primary)
+          .fileImporter(
+            isPresented: $isImportingFile,
+            allowedContentTypes: [.movie, .video],
+            allowsMultipleSelection: false
+          ) { result in
+            switch result {
+            case let .success(urls):
+              if let url = urls.first {
+                viewModel.send(.viewAction(.didImportSingleVideo(.success(url))))
+              }
+            case let .failure(error):
+              viewModel.send(.viewAction(.didImportSingleVideo(.failure(error))))
+            }
+          }
         }
 
         // Settings Section
         VStack(alignment: .leading, spacing: 12) {
-          Text("Settings")
+          Text("설정")
             .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal)
@@ -211,7 +242,7 @@ struct SidebarView: View {
           HStack {
             Image(systemName: "goforward.plus")
               .frame(width: 24)
-            Text("Seek Interval")
+            Text("건너뛰기")
             Spacer()
             Picker("", selection: Binding(
               get: { viewModel.seekInterval },

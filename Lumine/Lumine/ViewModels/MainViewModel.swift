@@ -99,6 +99,25 @@ final class MainViewModel {
         print("[Action] Folder import failed: \(error)")
       }
 
+      case let .didImportSingleVideo(result):
+      switch result {
+      case let .success(url):
+        print("[Action] Single video imported: \(url.path)")
+        
+        // Use addSingleFile to handle security scope and bookmarks
+        fileService.addSingleFile(url: url)
+        
+        // Play it immediately
+        if let index = fileService.files.firstIndex(of: url) {
+          currentVideoIndex = index
+          videoPlayerService.load(url: url)
+          isShowPlayer = true
+        }
+        
+      case let .failure(error):
+        print("[Action] Single video import failed: \(error)")
+      }
+
     case .toggleLooping:
       videoPlayerService.isLooping.toggle()
       print("[State] Looping toggled to: \(videoPlayerService.isLooping)")
