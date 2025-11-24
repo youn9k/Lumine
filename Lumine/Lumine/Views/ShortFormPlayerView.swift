@@ -10,74 +10,14 @@ struct ShortFormPlayerView: View {
       ScrollView(.vertical) {
         LazyVStack(spacing: 0) {
           ForEach(viewModel.fileService.files, id: \.self) { url in
-            ZStack {
-              Color.black
-              
-              // Video Player (Only play if current)
-              if viewModel.fileService.files.firstIndex(of: url) == viewModel.currentVideoIndex {
-                VideoPlayerWrapper(player: viewModel.videoPlayerService.player, videoGravity: .resizeAspect)
-                  .id(url) // Force recreate if needed, or keep
-              } else {
-                // Thumbnail or Placeholder
-                ThumbnailView(url: url)
-              }
-
-              // Overlay Info
-              VStack {
-                HStack {
-                  Button {
-                    viewModel.send(.viewAction(.closePlayer))
-                  } label: {
-                    Image(systemName: "xmark")
-                      .font(.system(size: 18, weight: .semibold))
-                      .foregroundStyle(.white)
-                      .padding(12)
-                      .background(.ultraThinMaterial)
-                      .clipShape(Circle())
-                  }
-                  Spacer()
-                  Button {
-                    viewModel.send(.viewAction(.togglePlayerMode))
-                  } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                      .font(.system(size: 16, weight: .semibold))
-                      .foregroundStyle(.white)
-                      .padding(12)
-                      .background(.ultraThinMaterial)
-                      .clipShape(Circle())
-                  }
+            content(url: url)
+              .frame(width: proxy.size.width, height: proxy.size.height)
+              .clipped()
+              .onAppear {
+                if viewModel.playerMode == .shortForm {
+                  viewModel.videoPlayerService.isLooping = true
                 }
-                .padding(20)
-                .padding(.horizontal)
-
-                Spacer()
-
-                VStack(alignment: .leading) {
-                  Text(url.lastPathComponent)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .shadow(radius: 2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .background(
-                  LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
-                )
               }
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .clipped()
-            .onAppear {
-              // If we scroll to this view, play it
-              // But ScrollView onAppear triggers early.
-              // Better to use scrollPosition or geometry detection.
-              // For simplicity in this MVP, we rely on manual swipe logic or paging.
-
-              // Ensure loop is enabled for short form
-              if viewModel.playerMode == .shortForm {
-                viewModel.videoPlayerService.isLooping = true
-              }
-            }
           }
         }
         .scrollTargetLayout()
@@ -92,12 +32,10 @@ struct ShortFormPlayerView: View {
         }
       ))
       .ignoresSafeArea()
-    }
-    .onTapGesture {
-      viewModel.send(.viewAction(.playPause))
-    }
-    //.focusable()
-    #if os(macOS)
+      .onTapGesture {
+        viewModel.send(.viewAction(.playPause))
+      }
+      #if os(macOS)
       .onReceive(shortcuts.keySubject) { key in
         switch key {
         case .upArrow:
@@ -110,8 +48,93 @@ struct ShortFormPlayerView: View {
           break
         }
       }
-    #endif
-    .buttonStyle(.plain) // Remove default macOS button backgrounds
+      #endif
+    }
+    .buttonStyle(.plain)
+  }
+
+  @ViewBuilder func content(url: URL) -> some View {
+    ZStack {
+      Color.black
+
+      videoPlayerView(url: url)
+
+      overlayView(url: url)
+    }
+  }
+
+  @ViewBuilder
+  private func videoPlayerView(url: URL) -> some View {
+    if viewModel.fileService.files.firstIndex(of: url) == viewModel.currentVideoIndex {
+      VideoPlayerWrapper(player: viewModel.videoPlayerService.player, videoGravity: .resizeAspect)
+        .id(url)
+    } else {
+      ThumbnailView(url: url)
+    }
+  }
+
+  @ViewBuilder
+  private func overlayView(url: URL) -> some View {
+    VStack {
+      topControls
+        .padding(20)
+        .padding(.horizontal)
+
+      Spacer()
+
+      bottomInfo(url: url)
+    }
+  }
+
+  private var topControls: some View {
+    HStack {
+      Button {
+        viewModel.send(.viewAction(.closePlayer))
+      } label: {
+        circleButtonImage(systemName: "xmark", size: 18)
+      }
+
+      Spacer()
+
+      Button {
+        viewModel.send(.viewAction(.togglePlayerMode))
+      } label: {
+        circleButtonImage(systemName: "inset.filled.rectangle", size: 16)
+      }
+
+      Button {
+        viewModel.send(.viewAction(.toggleFullScreen))
+      } label: {
+        circleButtonImage(
+          systemName: viewModel
+            .isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+          size: 16
+        )
+      }
+    }
+  }
+
+  private func bottomInfo(url: URL) -> some View {
+    VStack(alignment: .leading) {
+      Text(url.lastPathComponent)
+        .font(.headline)
+        .foregroundStyle(.white)
+        .shadow(radius: 2)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding()
+    .background(
+      LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
+    )
+  }
+
+  private func circleButtonImage(systemName: String, size: CGFloat) -> some View {
+    Image(systemName: systemName)
+      .font(.system(size: size, weight: .semibold))
+      .foregroundStyle(.white)
+      .padding(12)
+      .background(.ultraThinMaterial)
+      .clipShape(Circle())
   }
 }
 
