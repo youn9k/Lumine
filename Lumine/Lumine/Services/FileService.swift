@@ -5,21 +5,21 @@ import UniformTypeIdentifiers
 final class FileService {
   var files: [URL] = []
 
-    // MARK: - Constants
+    // MARK: - 상수
     private let supportedVideoTypes: [UTType] = [.movie, .video, .quickTimeMovie, .mpeg4Movie]
 
-    // MARK: - Persistence
+    // MARK: - 영속성
     private let bookmarkKey = "FolderBookmarks"
     
     init() {
         //restoreBookmarks()
     }
-    
+
     private func restoreBookmarks() {
-        print("[FileService] Restoring bookmarks...")
+        print("[FileService] 북마크 복원 중...")
         guard let data = UserDefaults.standard.data(forKey: bookmarkKey),
               let bookmarks = try? JSONDecoder().decode([Data].self, from: data) else { return }
-        
+
         for bookmark in bookmarks {
             var isStale = false
             do {
@@ -27,67 +27,67 @@ final class FileService {
                 #if os(macOS)
                 options.insert(.withSecurityScope)
                 #endif
-                
+
                 let url = try URL(resolvingBookmarkData: bookmark, options: options, relativeTo: nil, bookmarkDataIsStale: &isStale)
-                
+
                 if isStale {
-                    print("[FileService] Bookmark is stale: \(url.path)")
+                    print("[FileService] 북마크가 오래됨: \(url.path)")
                 }
-                
+
                 if url.startAccessingSecurityScopedResource() {
-                    print("[FileService] Restored access to: \(url.path)")
-                    // Check if it's a directory or file
+                    print("[FileService] 접근 권한 복원: \(url.path)")
+                    // 디렉토리인지 파일인지 확인
                     var isDirectory: ObjCBool = false
                     if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) {
                         if isDirectory.boolValue {
                             scanFolder(at: url, isRestoring: true)
                         } else {
-                            // It's a file
+                            // 파일인 경우
                             if !files.contains(url) {
                                 files.append(url)
                             }
                         }
                     }
                 } else {
-                    print("[FileService] Failed to access security scoped resource: \(url.path)")
+                    print("[FileService] 보안 스코프 리소스 접근 실패: \(url.path)")
                 }
             } catch {
-                print("[FileService] Error resolving bookmark: \(error)")
+                print("[FileService] 북마크 해석 오류: \(error)")
             }
         }
     }
     
     func addSingleFile(url: URL) {
-        print("[FileService] Adding single file: \(url.path)")
+        print("[FileService] 단일 파일 추가: \(url.path)")
         guard url.startAccessingSecurityScopedResource() else {
-            print("[FileService] Failed to access security scoped resource: \(url.path)")
+            print("[FileService] 보안 스코프 리소스 접근 실패: \(url.path)")
             return
         }
-        
+
         saveBookmark(for: url)
-        
+
         if !files.contains(url) {
             files.append(url)
         }
     }
     
     func scanFolder(at url: URL, isRestoring: Bool = false, recursive: Bool = false) {
-        print("[FileService] Scanning folder: \(url.path) (Recursive: \(recursive))")
+        print("[FileService] 폴더 스캔 중: \(url.path) (재귀: \(recursive))")
 
-        // If it's a new selection (not restoring), start accessing and save bookmark
+        // 새로운 선택인 경우(복원이 아님), 접근 권한 획득 및 북마크 저장
         if !isRestoring {
             guard url.startAccessingSecurityScopedResource() else {
-                print("[FileService] Failed to access folder: \(url.path)")
+                print("[FileService] 폴더 접근 실패: \(url.path)")
                 return
             }
             saveBookmark(for: url)
         }
 
-        // Enumerate video files in the directory
+        // 디렉토리 내 비디오 파일 열거
         let videoFiles = enumerateVideoFiles(at: url, recursive: recursive)
-        print("[FileService] Found \(videoFiles.count) videos in folder.")
+        print("[FileService] 폴더에서 \(videoFiles.count)개의 비디오 발견")
 
-        // Add to files list on main thread (avoid duplicates)
+        // 메인 스레드에서 파일 목록에 추가 (중복 제거)
         DispatchQueue.main.async {
             self.addUniqueFiles(videoFiles)
         }
@@ -102,32 +102,32 @@ final class FileService {
 
             let bookmarkData = try url.bookmarkData(options: options, includingResourceValuesForKeys: nil, relativeTo: nil)
 
-            // Load existing bookmarks
+            // 기존 북마크 불러오기
             var bookmarks: [Data] = []
             if let data = UserDefaults.standard.data(forKey: bookmarkKey),
                let existing = try? JSONDecoder().decode([Data].self, from: data) {
                 bookmarks = existing
             }
 
-            // Append new one if not exists
+            // 존재하지 않으면 새로 추가
             if !bookmarks.contains(bookmarkData) {
                 bookmarks.append(bookmarkData)
 
-                // Save back
+                // 저장
                 let data = try JSONEncoder().encode(bookmarks)
                 UserDefaults.standard.set(data, forKey: bookmarkKey)
-                print("[FileService] Saved bookmark for: \(url.path)")
+                print("[FileService] 북마크 저장 완료: \(url.path)")
             }
         } catch {
-            print("[FileService] Failed to save bookmark: \(error)")
+            print("[FileService] 북마크 저장 실패: \(error)")
         }
     }
 
-    // MARK: - File Validation & Filtering
+    // MARK: - 파일 검증 및 필터링
 
-    /// Checks if the given URL points to a video file
-    /// - Parameter url: The file URL to check
-    /// - Returns: True if the file is a supported video type, false otherwise
+    /// 주어진 URL이 비디오 파일을 가리키는지 확인
+    /// - Parameter url: 확인할 파일 URL
+    /// - Returns: 지원되는 비디오 타입이면 true, 그렇지 않으면 false
     private func isVideoFile(at url: URL) -> Bool {
         guard let resourceValues = try? url.resourceValues(forKeys: [.contentTypeKey]),
               let contentType = resourceValues.contentType else {
@@ -137,11 +137,11 @@ final class FileService {
         return supportedVideoTypes.contains { contentType.conforms(to: $0) }
     }
 
-    /// Enumerates video files in a directory
+    /// 디렉토리 내의 비디오 파일들을 열거
     /// - Parameters:
-    ///   - url: The directory URL to scan
-    ///   - recursive: Whether to scan subdirectories
-    /// - Returns: Array of video file URLs found in the directory
+    ///   - url: 스캔할 디렉토리 URL
+    ///   - recursive: 하위 디렉토리도 스캔할지 여부
+    /// - Returns: 디렉토리에서 발견된 비디오 파일 URL 배열
     private func enumerateVideoFiles(at url: URL, recursive: Bool) -> [URL] {
         let keys: [URLResourceKey] = [.contentTypeKey, .nameKey]
         var options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles, .skipsPackageDescendants]
@@ -151,7 +151,7 @@ final class FileService {
         }
 
         guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: keys, options: options) else {
-            print("[FileService] Failed to create enumerator for: \(url.path)")
+            print("[FileService] 열거자 생성 실패: \(url.path)")
             return []
         }
 
@@ -166,8 +166,8 @@ final class FileService {
         return videoFiles
     }
 
-    /// Adds files to the files list, avoiding duplicates
-    /// - Parameter newFiles: Array of file URLs to add
+    /// 중복을 피하면서 파일 목록에 파일들을 추가
+    /// - Parameter newFiles: 추가할 파일 URL 배열
     private func addUniqueFiles(_ newFiles: [URL]) {
         for file in newFiles {
             if !files.contains(file) {
@@ -177,40 +177,40 @@ final class FileService {
     }
 
     func loadFiles(from urls: [URL]) {
-        print("[FileService] Loading \(urls.count) files...")
+        print("[FileService] \(urls.count)개 파일 로딩 중...")
 
-        // Filter for video files
+        // 비디오 파일 필터링
         let videoFiles = urls.filter { url in
             let isVideo = isVideoFile(at: url)
             if !isVideo {
-                print("[FileService] Skipped (not video): \(url.lastPathComponent)")
+                print("[FileService] 건너뜀 (비디오 아님): \(url.lastPathComponent)")
             }
             return isVideo
         }
 
-        // Add unique files and count additions
+        // 고유 파일 추가 및 개수 계산
         let initialCount = files.count
         addUniqueFiles(videoFiles)
         let addedCount = files.count - initialCount
 
-        print("[FileService] Added \(addedCount) new files. Total: \(files.count)")
+        print("[FileService] \(addedCount)개 파일 추가됨. 총: \(files.count)")
     }
-    
+
     func clearFiles() {
         files.removeAll()
-        // Note: We might want to clear bookmarks too, or keep them?
-        // For now, let's keep bookmarks so they reappear on restart,
-        // but user might expect "Clear" to really clear.
-        // Let's clear bookmarks too for a fresh start.
+        // 참고: 북마크도 지울지 유지할지 결정 필요
+        // 현재는 재시작 시 다시 나타나도록 북마크 유지
+        // 하지만 사용자는 "Clear"가 완전히 지우는 것을 기대할 수 있음
+        // 새 시작을 위해 북마크도 함께 지움
         UserDefaults.standard.removeObject(forKey: bookmarkKey)
-        print("[FileService] Cleared all files and bookmarks")
+        print("[FileService] 모든 파일 및 북마크 삭제됨")
     }
 
-    // MARK: - File Processing
+    // MARK: - 파일 처리
 
-    /// Copies a file from a source URL to the Documents directory
-    /// - Parameter url: Source file URL
-    /// - Returns: Destination URL if successful, nil otherwise
+    /// 소스 URL의 파일을 Documents 디렉토리로 복사
+    /// - Parameter url: 소스 파일 URL
+    /// - Returns: 성공 시 대상 URL, 실패 시 nil
     private func copyFileToDocuments(from url: URL) -> URL? {
         guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return nil
@@ -223,24 +223,24 @@ final class FileService {
                 try FileManager.default.removeItem(at: destination)
             }
 
-            // If security scoped, start accessing
+            // 보안 스코프인 경우 접근 시작
             let accessing = url.startAccessingSecurityScopedResource()
             defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
             try FileManager.default.copyItem(at: url, to: destination)
-            print("[FileService] Copied file to: \(destination.lastPathComponent)")
+            print("[FileService] 파일 복사 완료: \(destination.lastPathComponent)")
             return destination
         } catch {
-            print("[FileService] File copy error: \(error)")
+            print("[FileService] 파일 복사 오류: \(error)")
             return nil
         }
     }
 
-    /// Processes a single NSItemProvider to extract file URL
-    /// - Parameter provider: The item provider to process
-    /// - Returns: The extracted and copied file URL, or nil if processing failed
+    /// 단일 NSItemProvider를 처리하여 파일 URL 추출
+    /// - Parameter provider: 처리할 아이템 프로바이더
+    /// - Returns: 추출 및 복사된 파일 URL, 실패 시 nil
     private func processItemProvider(_ provider: NSItemProvider) async -> URL? {
-        // Try to load as a file representation first (most reliable for drops)
+        // 파일 표현으로 먼저 로드 시도 (드롭에 가장 신뢰할 수 있음)
         if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
             return await withCheckedContinuation { continuation in
                 provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
@@ -248,7 +248,7 @@ final class FileService {
                         continuation.resume(returning: savedUrl)
                     } else {
                         if let error = error {
-                            print("[FileService] Error loading movie representation: \(error)")
+                            print("[FileService] 동영상 표현 로드 오류: \(error)")
                         }
                         continuation.resume(returning: nil)
                     }
@@ -261,7 +261,7 @@ final class FileService {
                         continuation.resume(returning: savedUrl)
                     } else {
                         if let error = error {
-                            print("[FileService] Error loading in-place representation: \(error)")
+                            print("[FileService] 제자리 표현 로드 오류: \(error)")
                         }
                         continuation.resume(returning: nil)
                     }
@@ -278,16 +278,16 @@ final class FileService {
                 }
             }
         } else {
-            print("[FileService] Provider does not support video types: \(provider.registeredTypeIdentifiers)")
+            print("[FileService] 프로바이더가 비디오 타입을 지원하지 않음: \(provider.registeredTypeIdentifiers)")
             return nil
         }
     }
 
-    /// Processes dropped items and returns extracted file URLs (async version)
-    /// - Parameter providers: Array of NSItemProvider from drop operation
-    /// - Returns: Array of successfully extracted and copied file URLs
+    /// 드롭된 아이템들을 처리하고 추출된 파일 URL들을 반환 (async 버전)
+    /// - Parameter providers: 드롭 작업에서 받은 NSItemProvider 배열
+    /// - Returns: 성공적으로 추출 및 복사된 파일 URL 배열
     func processDroppedItems(providers: [NSItemProvider]) async -> [URL] {
-        print("[FileService] Processing \(providers.count) dropped items...")
+        print("[FileService] \(providers.count)개 드롭 아이템 처리 중...")
 
         return await withTaskGroup(of: URL?.self) { group in
             for provider in providers {
@@ -303,30 +303,30 @@ final class FileService {
                 }
             }
 
-            print("[FileService] Finished processing items. Found \(urls.count) valid video files.")
+            print("[FileService] 아이템 처리 완료. \(urls.count)개의 유효한 비디오 파일 발견")
             return urls
         }
     }
 
-    /// Processes dropped items and returns extracted file URLs (completion handler version)
+    /// 드롭된 아이템들을 처리하고 추출된 파일 URL들을 반환 (completion handler 버전)
     /// - Parameters:
-    ///   - providers: Array of NSItemProvider from drop operation
-    ///   - completion: Completion handler called with array of extracted URLs
+    ///   - providers: 드롭 작업에서 받은 NSItemProvider 배열
+    ///   - completion: 추출된 URL 배열과 함께 호출되는 완료 핸들러
     func processDroppedItems(providers: [NSItemProvider], completion: @escaping ([URL]) -> Void) {
-        print("[FileService] Processing \(providers.count) dropped items...")
+        print("[FileService] \(providers.count)개 드롭 아이템 처리 중...")
         let dispatchGroup = DispatchGroup()
         var urls: [URL] = []
 
         for provider in providers {
             dispatchGroup.enter()
 
-            // Try to load as a file representation first (most reliable for drops)
+            // 파일 표현으로 먼저 로드 시도 (드롭에 가장 신뢰할 수 있음)
             if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
                 provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
                     if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
                         urls.append(savedUrl)
                     } else if let error = error {
-                        print("[FileService] Error loading movie representation: \(error)")
+                        print("[FileService] 동영상 표현 로드 오류: \(error)")
                     }
                     dispatchGroup.leave()
                 }
@@ -335,7 +335,7 @@ final class FileService {
                     if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
                         urls.append(savedUrl)
                     } else if let error = error {
-                        print("[FileService] Error loading in-place representation: \(error)")
+                        print("[FileService] 제자리 표현 로드 오류: \(error)")
                     }
                     dispatchGroup.leave()
                 }
@@ -347,13 +347,13 @@ final class FileService {
                     dispatchGroup.leave()
                 }
             } else {
-                print("[FileService] Provider does not support video types: \(provider.registeredTypeIdentifiers)")
+                print("[FileService] 프로바이더가 비디오 타입을 지원하지 않음: \(provider.registeredTypeIdentifiers)")
                 dispatchGroup.leave()
             }
         }
 
         dispatchGroup.notify(queue: .main) {
-            print("[FileService] Finished processing items. Found \(urls.count) valid video files.")
+            print("[FileService] 아이템 처리 완료. \(urls.count)개의 유효한 비디오 파일 발견")
             completion(urls)
         }
     }
