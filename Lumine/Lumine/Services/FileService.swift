@@ -5,6 +5,9 @@ import UniformTypeIdentifiers
 final class FileService {
   var files: [URL] = []
 
+    // MARK: - Constants
+    private let supportedVideoTypes: [UTType] = [.movie, .video, .quickTimeMovie, .mpeg4Movie]
+
     // MARK: - Persistence
     private let bookmarkKey = "FolderBookmarks"
     
@@ -70,8 +73,8 @@ final class FileService {
     
     func scanFolder(at url: URL, isRestoring: Bool = false, recursive: Bool = false) {
         print("[FileService] Scanning folder: \(url.path) (Recursive: \(recursive))")
-        
-        // If it's a new selection (not restoring), start accessing
+
+        // If it's a new selection (not restoring), start accessing and save bookmark
         if !isRestoring {
             guard url.startAccessingSecurityScopedResource() else {
                 print("[FileService] Failed to access folder: \(url.path)")
@@ -79,41 +82,14 @@ final class FileService {
             }
             saveBookmark(for: url)
         }
-        
-        let keys: [URLResourceKey] = [.contentTypeKey, .nameKey]
-        var options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles, .skipsPackageDescendants]
-        
-        if !recursive {
-            options.insert(.skipsSubdirectoryDescendants)
-        }
-        
-        // Create enumerator for recursive scanning
-        guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: keys, options: options) else {
-            print("[FileService] Failed to create enumerator for: \(url.path)")
-            return
-        }
-        
-        var newFiles: [URL] = []
-        let videoTypes: [UTType] = [.movie, .video, .quickTimeMovie, .mpeg4Movie]
-        
-        for case let fileURL as URL in enumerator {
-            guard let resourceValues = try? fileURL.resourceValues(forKeys: Set(keys)),
-                  let contentType = resourceValues.contentType else { continue }
-            
-            if videoTypes.contains(where: { contentType.conforms(to: $0) }) {
-                newFiles.append(fileURL)
-            }
-        }
-        
-        print("[FileService] Found \(newFiles.count) videos in folder.")
-        
-        // Add to files list (avoid duplicates)
+
+        // Enumerate video files in the directory
+        let videoFiles = enumerateVideoFiles(at: url, recursive: recursive)
+        print("[FileService] Found \(videoFiles.count) videos in folder.")
+
+        // Add to files list on main thread (avoid duplicates)
         DispatchQueue.main.async {
-            for file in newFiles {
-                if !self.files.contains(file) {
-                    self.files.append(file)
-                }
-            }
+            self.addUniqueFiles(videoFiles)
         }
     }
     
@@ -123,20 +99,20 @@ final class FileService {
             #if os(macOS)
             options.insert(.withSecurityScope)
             #endif
-            
+
             let bookmarkData = try url.bookmarkData(options: options, includingResourceValuesForKeys: nil, relativeTo: nil)
-            
+
             // Load existing bookmarks
             var bookmarks: [Data] = []
             if let data = UserDefaults.standard.data(forKey: bookmarkKey),
                let existing = try? JSONDecoder().decode([Data].self, from: data) {
                 bookmarks = existing
             }
-            
+
             // Append new one if not exists
             if !bookmarks.contains(bookmarkData) {
                 bookmarks.append(bookmarkData)
-                
+
                 // Save back
                 let data = try JSONEncoder().encode(bookmarks)
                 UserDefaults.standard.set(data, forKey: bookmarkKey)
@@ -147,32 +123,76 @@ final class FileService {
         }
     }
 
-    func loadFiles(from urls: [URL]) {
-        print("[FileService] Loading \(urls.count) files...")
-        // Filter for video files
-        let videoTypes: [UTType] = [.movie, .video, .quickTimeMovie, .mpeg4Movie]
-        
-        let newFiles = urls.filter { url in
-            guard let resourceValues = try? url.resourceValues(forKeys: [.contentTypeKey]),
-                  let contentType = resourceValues.contentType else {
-                print("[FileService] Skipped (unknown type): \(url.lastPathComponent)")
-                return false
-            }
-            let isVideo = videoTypes.contains { contentType.conforms(to: $0) }
-            if !isVideo {
-                print("[FileService] Skipped (not video): \(url.lastPathComponent) (\(contentType.identifier))")
-            }
-            return isVideo
+    // MARK: - File Validation & Filtering
+
+    /// Checks if the given URL points to a video file
+    /// - Parameter url: The file URL to check
+    /// - Returns: True if the file is a supported video type, false otherwise
+    private func isVideoFile(at url: URL) -> Bool {
+        guard let resourceValues = try? url.resourceValues(forKeys: [.contentTypeKey]),
+              let contentType = resourceValues.contentType else {
+            return false
         }
-        
-        // Append unique files
-        var addedCount = 0
+
+        return supportedVideoTypes.contains { contentType.conforms(to: $0) }
+    }
+
+    /// Enumerates video files in a directory
+    /// - Parameters:
+    ///   - url: The directory URL to scan
+    ///   - recursive: Whether to scan subdirectories
+    /// - Returns: Array of video file URLs found in the directory
+    private func enumerateVideoFiles(at url: URL, recursive: Bool) -> [URL] {
+        let keys: [URLResourceKey] = [.contentTypeKey, .nameKey]
+        var options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles, .skipsPackageDescendants]
+
+        if !recursive {
+            options.insert(.skipsSubdirectoryDescendants)
+        }
+
+        guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: keys, options: options) else {
+            print("[FileService] Failed to create enumerator for: \(url.path)")
+            return []
+        }
+
+        var videoFiles: [URL] = []
+
+        for case let fileURL as URL in enumerator {
+            if isVideoFile(at: fileURL) {
+                videoFiles.append(fileURL)
+            }
+        }
+
+        return videoFiles
+    }
+
+    /// Adds files to the files list, avoiding duplicates
+    /// - Parameter newFiles: Array of file URLs to add
+    private func addUniqueFiles(_ newFiles: [URL]) {
         for file in newFiles {
             if !files.contains(file) {
                 files.append(file)
-                addedCount += 1
             }
         }
+    }
+
+    func loadFiles(from urls: [URL]) {
+        print("[FileService] Loading \(urls.count) files...")
+
+        // Filter for video files
+        let videoFiles = urls.filter { url in
+            let isVideo = isVideoFile(at: url)
+            if !isVideo {
+                print("[FileService] Skipped (not video): \(url.lastPathComponent)")
+            }
+            return isVideo
+        }
+
+        // Add unique files and count additions
+        let initialCount = files.count
+        addUniqueFiles(videoFiles)
+        let addedCount = files.count - initialCount
+
         print("[FileService] Added \(addedCount) new files. Total: \(files.count)")
     }
     
