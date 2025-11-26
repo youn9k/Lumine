@@ -199,48 +199,131 @@ final class FileService {
     func clearFiles() {
         files.removeAll()
         // Note: We might want to clear bookmarks too, or keep them?
-        // For now, let's keep bookmarks so they reappear on restart, 
+        // For now, let's keep bookmarks so they reappear on restart,
         // but user might expect "Clear" to really clear.
         // Let's clear bookmarks too for a fresh start.
         UserDefaults.standard.removeObject(forKey: bookmarkKey)
         print("[FileService] Cleared all files and bookmarks")
     }
-    
+
+    // MARK: - File Processing
+
+    /// Copies a file from a source URL to the Documents directory
+    /// - Parameter url: Source file URL
+    /// - Returns: Destination URL if successful, nil otherwise
+    private func copyFileToDocuments(from url: URL) -> URL? {
+        guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+
+        let destination = documents.appendingPathComponent(url.lastPathComponent)
+
+        do {
+            if FileManager.default.fileExists(atPath: destination.path) {
+                try FileManager.default.removeItem(at: destination)
+            }
+
+            // If security scoped, start accessing
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+            try FileManager.default.copyItem(at: url, to: destination)
+            print("[FileService] Copied file to: \(destination.lastPathComponent)")
+            return destination
+        } catch {
+            print("[FileService] File copy error: \(error)")
+            return nil
+        }
+    }
+
+    /// Processes a single NSItemProvider to extract file URL
+    /// - Parameter provider: The item provider to process
+    /// - Returns: The extracted and copied file URL, or nil if processing failed
+    private func processItemProvider(_ provider: NSItemProvider) async -> URL? {
+        // Try to load as a file representation first (most reliable for drops)
+        if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+            return await withCheckedContinuation { continuation in
+                provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
+                    if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
+                        continuation.resume(returning: savedUrl)
+                    } else {
+                        if let error = error {
+                            print("[FileService] Error loading movie representation: \(error)")
+                        }
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            return await withCheckedContinuation { continuation in
+                provider.loadInPlaceFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { [weak self] url, _, error in
+                    if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
+                        continuation.resume(returning: savedUrl)
+                    } else {
+                        if let error = error {
+                            print("[FileService] Error loading in-place representation: \(error)")
+                        }
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        } else if provider.canLoadObject(ofClass: URL.self) {
+            return await withCheckedContinuation { continuation in
+                _ = provider.loadObject(ofClass: URL.self) { [weak self] url, _ in
+                    if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
+                        continuation.resume(returning: savedUrl)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        } else {
+            print("[FileService] Provider does not support video types: \(provider.registeredTypeIdentifiers)")
+            return nil
+        }
+    }
+
+    /// Processes dropped items and returns extracted file URLs (async version)
+    /// - Parameter providers: Array of NSItemProvider from drop operation
+    /// - Returns: Array of successfully extracted and copied file URLs
+    func processDroppedItems(providers: [NSItemProvider]) async -> [URL] {
+        print("[FileService] Processing \(providers.count) dropped items...")
+
+        return await withTaskGroup(of: URL?.self) { group in
+            for provider in providers {
+                group.addTask {
+                    await self.processItemProvider(provider)
+                }
+            }
+
+            var urls: [URL] = []
+            for await url in group {
+                if let url = url {
+                    urls.append(url)
+                }
+            }
+
+            print("[FileService] Finished processing items. Found \(urls.count) valid video files.")
+            return urls
+        }
+    }
+
+    /// Processes dropped items and returns extracted file URLs (completion handler version)
+    /// - Parameters:
+    ///   - providers: Array of NSItemProvider from drop operation
+    ///   - completion: Completion handler called with array of extracted URLs
     func processDroppedItems(providers: [NSItemProvider], completion: @escaping ([URL]) -> Void) {
         print("[FileService] Processing \(providers.count) dropped items...")
         let dispatchGroup = DispatchGroup()
         var urls: [URL] = []
-        
+
         for provider in providers {
             dispatchGroup.enter()
-            
-            // Helper to copy file to Documents
-            func copyFile(from url: URL) -> URL? {
-                guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
-                let destination = documents.appendingPathComponent(url.lastPathComponent)
-                
-                do {
-                    if FileManager.default.fileExists(atPath: destination.path) {
-                        try FileManager.default.removeItem(at: destination)
-                    }
-                    
-                    // If security scoped, start accessing
-                    let accessing = url.startAccessingSecurityScopedResource()
-                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-                    
-                    try FileManager.default.copyItem(at: url, to: destination)
-                    print("[FileService] Copied file to: \(destination.lastPathComponent)")
-                    return destination
-                } catch {
-                    print("[FileService] File copy error: \(error)")
-                    return nil
-                }
-            }
-            
+
             // Try to load as a file representation first (most reliable for drops)
             if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
-                provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { url, error in
-                    if let url = url, let savedUrl = copyFile(from: url) {
+                provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
+                    if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
                         urls.append(savedUrl)
                     } else if let error = error {
                         print("[FileService] Error loading movie representation: \(error)")
@@ -248,8 +331,8 @@ final class FileService {
                     dispatchGroup.leave()
                 }
             } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-                provider.loadInPlaceFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { url, inPlace, error in
-                    if let url = url, let savedUrl = copyFile(from: url) {
+                provider.loadInPlaceFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { [weak self] url, _, error in
+                    if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
                         urls.append(savedUrl)
                     } else if let error = error {
                         print("[FileService] Error loading in-place representation: \(error)")
@@ -257,8 +340,8 @@ final class FileService {
                     dispatchGroup.leave()
                 }
             } else if provider.canLoadObject(ofClass: URL.self) {
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    if let url = url, let savedUrl = copyFile(from: url) {
+                _ = provider.loadObject(ofClass: URL.self) { [weak self] url, _ in
+                    if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
                         urls.append(savedUrl)
                     }
                     dispatchGroup.leave()
@@ -268,7 +351,7 @@ final class FileService {
                 dispatchGroup.leave()
             }
         }
-        
+
         dispatchGroup.notify(queue: .main) {
             print("[FileService] Finished processing items. Found \(urls.count) valid video files.")
             completion(urls)
