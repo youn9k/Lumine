@@ -35,7 +35,7 @@ struct LibraryView: View {
     .background(Color.black.opacity(0.05))
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .contentShape(Rectangle())
-    .onDrop(of: [.movie, .video, .fileURL, .content, .item], isTargeted: nil) { providers in
+    .onDrop(of: [.movie, .video, .fileURL], isTargeted: nil) { providers in
       viewModel.fileService.processDroppedItems(providers: providers) { urls in
         if !urls.isEmpty {
           viewModel.send(.viewAction(.didDropFiles(urls)))

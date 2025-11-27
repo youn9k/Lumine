@@ -249,7 +249,20 @@ final class FileService {
   /// - Returns: 추출 및 복사된 파일 URL, 실패 시 nil
   private func processItemProvider(_ provider: NSItemProvider) async -> URL? {
     // 파일 표현으로 먼저 로드 시도 (드롭에 가장 신뢰할 수 있음)
-    if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+    if provider.hasItemConformingToTypeIdentifier(UTType.video.identifier) {
+      return await withCheckedContinuation { continuation in
+        provider.loadFileRepresentation(forTypeIdentifier: UTType.video.identifier) { [weak self] url, error in
+          if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
+            continuation.resume(returning: savedUrl)
+          } else {
+            if let error = error {
+              print("[FileService] 동영상 표현 로드 오류: \(error)")
+            }
+            continuation.resume(returning: nil)
+          }
+        }
+      }
+    } else if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
       return await withCheckedContinuation { continuation in
         provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
           if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
@@ -330,7 +343,16 @@ final class FileService {
       dispatchGroup.enter()
 
       // 파일 표현으로 먼저 로드 시도 (드롭에 가장 신뢰할 수 있음)
-      if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+      if provider.hasItemConformingToTypeIdentifier(UTType.video.identifier) {
+        provider.loadFileRepresentation(forTypeIdentifier: UTType.video.identifier) { [weak self] url, error in
+          if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
+            urls.append(savedUrl)
+          } else if let error = error {
+            print("[FileService] 동영상 표현 로드 오류: \(error)")
+          }
+          dispatchGroup.leave()
+        }
+      } else if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
         provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
           if let url = url, let savedUrl = self?.copyFileToDocuments(from: url) {
             urls.append(savedUrl)
